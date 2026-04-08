@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AIRPORTS } from '../data/airports'
+import { AIRCRAFTS } from '../data/aircrafts'
 
 // Chevron icon for collapse toggle
 function ChevronIcon({ open }) {
@@ -95,10 +96,11 @@ export default function Sidebar({
 }) {
   const [open, setOpen] = useState(true)
 
-  // Placeholder range logic — will be replaced when aircraft data is wired in
-  const rangeStatus = distanceNm !== null
-    ? distanceNm <= 4000 ? 'within-range' : 'exceeds-range'
-    : null
+  {aircraftType && (
+    <p className="text-xs text-slate-400">
+      Max range {aircraftType.range.toLocaleString()} nm · {aircraftType.speed} kts
+    </p>
+  )}
 
   const rangeLabel = {
     'within-range':  'Within range',
@@ -188,18 +190,12 @@ export default function Sidebar({
             <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">
               Aircraft
             </h2>
-            <input
-              type="text"
-              value={aircraftType}
-              onChange={(e) => setAircraftType(e.target.value)}
-              placeholder="e.g. Boeing 737, Cessna 172"
-              className="
-                w-full bg-slate-800/70 border border-slate-700 rounded-lg
-                px-3 py-2 text-sm text-white placeholder-slate-600
-                focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40
-                transition-colors
-              "
-            />
+            <select value={aircraftType} onChange={e => setAircraftType(e.target.value)}>
+              <option value="">Select aircraft</option>
+              {Object.entries(AIRCRAFTS).map(([key, ac]) => (
+              <option key={key} value={key}>{ac.type}</option>
+              ))}
+            </select>
           </section>
 
           {/* ── Calculate button ───────────────────────────── */}

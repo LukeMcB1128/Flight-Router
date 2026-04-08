@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, use } from 'react'
 import { findAirport } from '../data/airports'
+import { findAircraft } from '../data/aircrafts'
 
 // Earth's mean radius in nautical miles
 const EARTH_RADIUS_NM = 3440.065
@@ -45,6 +46,7 @@ export function useRoute() {
   // Resolve airport objects from the dataset
   const origin      = useMemo(() => findAirport(originIcao), [originIcao])
   const destination = useMemo(() => findAirport(destIcao),   [destIcao])
+  const aircraft    = useMemo(() => findAircraft(aircraftType), [aircraftType])
 
   // Calculate distance only when both airports are known
   const distanceNm = useMemo(() => {
@@ -52,6 +54,11 @@ export function useRoute() {
     if (origin.icao === destination.icao) return 0
     return Math.round(haversineNm(origin.lat, origin.lng, destination.lat, destination.lng))
   }, [origin, destination])
+
+  const rangeStatus = useMemo(() => {
+    if (!distanceNm || !aircraft) return null
+    return distanceNm <= aircraft.range ? 'within-range' : 'exceeds-range'
+  }, [distanceNm, aircraft])
 
   return {
     originIcao,
