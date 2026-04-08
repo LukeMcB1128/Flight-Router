@@ -1,6 +1,7 @@
-import { useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import GlobeView from './components/GlobeView'
 import Sidebar from './components/Sidebar'
+import FlightPlannerModal from './components/FlightPlannerModal'
 import { useRoute } from './hooks/useRoute'
 
 /**
@@ -14,24 +15,33 @@ export default function App() {
     origin, destination,
     distanceNm,
     aircraftType, setAircraftType,
+    aircraft,
+    rangeStatus,
+    fuelGallons,   setFuelGallons,
+    payloadLbs,    setPayloadLbs,
+    resolvedFuelGallons,
+    fuelWeightLbs,
+    maxPayloadLbs,
+    totalWeightLbs,
+    weightStatus,
+    effectiveRange,
   } = useRoute()
 
-  /**
-   * Globe click handler.
-   * First click sets origin, second sets destination.
-   * A third click resets and starts over.
-   */
-  const handleGlobeClick = useCallback((lat, lng) => {
-    // We don't auto-place from click in this foundation build —
-    // airports must match the hardcoded dataset. The globe click
-    // is wired but finding the nearest airport is a future feature.
-    // For now, clicking the globe is a no-op (inputs drive state).
+  const [plannerOpen, setPlannerOpen] = useState(false)
+
+  // Clamp payload down when max drops due to higher fuel load
+  const handleFuelChange = useCallback((gallons) => {
+    setFuelGallons(gallons)
+    const newMax = Math.max(0, aircraft.MTOW - aircraft.OEW - gallons * 6)
+    if (payloadLbs > newMax) setPayloadLbs(newMax)
+  }, [aircraft, payloadLbs, setFuelGallons, setPayloadLbs])
+
+  const handleGlobeClick = useCallback(() => {
+    // Future: nearest-airport snap from click
   }, [])
 
   const handleCalculate = useCallback(() => {
-    // Calculation is reactive via useRoute — pressing the button
-    // currently has no extra side-effect. This handler is the hook
-    // for future async work (API calls, range checks, etc.).
+    // Calculation is reactive via useRoute
   }, [])
 
   return (
@@ -41,10 +51,15 @@ export default function App() {
         originIcao={originIcao}   setOriginIcao={setOriginIcao}
         destIcao={destIcao}       setDestIcao={setDestIcao}
         aircraftType={aircraftType} setAircraftType={setAircraftType}
+        aircraft={aircraft}
+        rangeStatus={rangeStatus}
+        fuelGallons={fuelGallons}
+        effectiveRange={effectiveRange}
         origin={origin}
         destination={destination}
         distanceNm={distanceNm}
         onCalculate={handleCalculate}
+        onOpenPlanner={() => setPlannerOpen(true)}
       />
 
       {/* Globe fills remaining space */}
@@ -55,6 +70,23 @@ export default function App() {
           onGlobeClick={handleGlobeClick}
         />
       </div>
+
+      {/* Flight planner modal */}
+      {plannerOpen && (
+        <FlightPlannerModal
+          aircraft={aircraft}
+          fuelGallons={resolvedFuelGallons}
+          payloadLbs={payloadLbs}
+          maxPayloadLbs={maxPayloadLbs}
+          fuelWeightLbs={fuelWeightLbs}
+          totalWeightLbs={totalWeightLbs}
+          weightStatus={weightStatus}
+          effectiveRange={effectiveRange}
+          onFuelChange={handleFuelChange}
+          onPayloadChange={setPayloadLbs}
+          onClose={() => setPlannerOpen(false)}
+        />
+      )}
     </div>
   )
 }

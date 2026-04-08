@@ -1,9 +1,12 @@
-import { useState, useMemo, use } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { findAirport } from '../data/airports'
 import { findAircraft } from '../data/aircrafts'
 
 // Earth's mean radius in nautical miles
 const EARTH_RADIUS_NM = 3440.065
+
+// Avgas density in lbs per gallon
+const AVGAS_LBS_PER_GAL = 6
 
 /**
  * Haversine formula — great-circle distance between two lat/lng points.
@@ -25,28 +28,28 @@ function haversineNm(lat1, lng1, lat2, lng2) {
 
 /**
  * useRoute — manages origin/destination state and route calculations.
- *
- * Returns:
- *   originIcao, destIcao       — current ICAO strings
- *   setOriginIcao, setDestIcao — setters
- *   origin, destination        — resolved airport objects (or null)
- *   distanceNm                 — great-circle distance (null if incomplete)
- *   aircraftType               — free-text aircraft type string
- *   setAircraftType
  */
 export function useRoute() {
   const [originIcao, setOriginIcaoRaw] = useState('')
-  const [destIcao, setDestIcaoRaw] = useState('')
+  const [destIcao, setDestIcaoRaw]     = useState('')
   const [aircraftType, setAircraftType] = useState('')
+  const [fuelGallons, setFuelGallons]  = useState(null)  // null = full tank default
+  const [payloadLbs, setPayloadLbs]    = useState(0)
 
   // Normalise to upper-case on the way in
   const setOriginIcao = (v) => setOriginIcaoRaw(v.toUpperCase())
   const setDestIcao   = (v) => setDestIcaoRaw(v.toUpperCase())
 
-  // Resolve airport objects from the dataset
+  // Resolve airport and aircraft objects
   const origin      = useMemo(() => findAirport(originIcao), [originIcao])
   const destination = useMemo(() => findAirport(destIcao),   [destIcao])
   const aircraft    = useMemo(() => findAircraft(aircraftType), [aircraftType])
+
+  // Reset fuel and payload when aircraft changes
+  useEffect(() => {
+    setFuelGallons(null)
+    setPayloadLbs(0)
+  }, [aircraftType])
 
   // Calculate distance only when both airports are known
   const distanceNm = useMemo(() => {
@@ -55,20 +58,42 @@ export function useRoute() {
     return Math.round(haversineNm(origin.lat, origin.lng, destination.lat, destination.lng))
   }, [origin, destination])
 
+  // Fuel and weight derived values
+  const resolvedFuelGallons = fuelGallons ?? (aircraft?.fuel_full ?? 0)
+  const fuelWeightLbs       = resolvedFuelGallons * AVGAS_LBS_PER_GAL
+  const maxPayloadLbs       = aircraft
+    ? Math.max(0, aircraft.MTOW - aircraft.OEW - fuelWeightLbs)
+    : null
+  const totalWeightLbs      = aircraft
+    ? aircraft.OEW + fuelWeightLbs + payloadLbs
+    : null
+  const weightStatus        = totalWeightLbs !== null
+    ? (totalWeightLbs <= aircraft.MTOW ? 'within-limits' : 'over-mtow')
+    : null
+  const effectiveRange      = aircraft
+    ? Math.round((resolvedFuelGallons / aircraft.fuel_burn_perhr) * aircraft.speed)
+    : null
+
   const rangeStatus = useMemo(() => {
-    if (!distanceNm || !aircraft) return null
-    return distanceNm <= aircraft.range ? 'within-range' : 'exceeds-range'
-  }, [distanceNm, aircraft])
+    if (!distanceNm || !aircraft || effectiveRange === null) return null
+    return distanceNm <= effectiveRange ? 'within-range' : 'exceeds-range'
+  }, [distanceNm, aircraft, effectiveRange])
 
   return {
-    originIcao,
-    setOriginIcao,
-    destIcao,
-    setDestIcao,
-    origin,
-    destination,
+    originIcao,    setOriginIcao,
+    destIcao,      setDestIcao,
+    origin,        destination,
     distanceNm,
-    aircraftType,
-    setAircraftType,
+    aircraftType,  setAircraftType,
+    aircraft,
+    rangeStatus,
+    fuelGallons,   setFuelGallons,
+    payloadLbs,    setPayloadLbs,
+    resolvedFuelGallons,
+    fuelWeightLbs,
+    maxPayloadLbs,
+    totalWeightLbs,
+    weightStatus,
+    effectiveRange,
   }
 }

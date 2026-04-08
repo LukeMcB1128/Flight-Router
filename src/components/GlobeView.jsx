@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, use } from 'react'
 import Globe from 'globe.gl'
 
 /**
@@ -77,7 +77,7 @@ export default function GlobeView({ origin, destination, onGlobeClick }) {
     if (!globe) return
 
     // pause auto rotate when route is set
-    if (origin || destination) {
+    if (origin || destination || (origin && destination)) {
       globe.controls().autoRotate = false
       clearTimeout(idleTimerRef.current)
     } else {
@@ -180,6 +180,16 @@ export default function GlobeView({ origin, destination, onGlobeClick }) {
     const midLng = (origin.lng + destination.lng) / 2
 
     globe.pointOfView({ lat: midLat, lng: midLng, altitude: 2.2 }, 1200)
+  }, [origin, destination])
+
+  // -- Auto-pan to show an airport when entered -----------------------------
+  useEffect(() => {
+    const globe = globeRef.current
+    if (!globe || (origin && destination)) return
+
+    const target = origin || destination
+    if (!target) return
+    globe.pointOfView({ lat: target.lat, lng: target.lng, altitude: 2.2}, 1200)
   }, [origin, destination])
 
   return (

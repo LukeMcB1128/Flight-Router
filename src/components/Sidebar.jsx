@@ -92,7 +92,7 @@ export default function Sidebar({
   aircraftType, setAircraftType,
   origin, destination,
   distanceNm,
-  onCalculate,
+  onOpenPlanner,
 }) {
   const [open, setOpen] = useState(true)
 
@@ -216,9 +216,9 @@ export default function Sidebar({
             )}
           </section>
 
-          {/* ── Calculate button ───────────────────────────── */}
+          {/* ── Flight Planner button ───────────────────────────── */}
           <button
-            onClick={onCalculate}
+            onClick={onOpenPlanner}
             disabled={!origin || !destination}
             className="
               w-full py-2.5 rounded-lg text-sm font-semibold
@@ -227,7 +227,7 @@ export default function Sidebar({
               text-white transition-colors
             "
           >
-            Calculate Route
+            Open Flight Planner
           </button>
 
           {/* ── Results ────────────────────────────────────── */}
