@@ -1,7 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import GlobeView from './components/GlobeView'
 import Sidebar from './components/Sidebar'
-import FlightPlannerModal from './components/FlightPlannerModal'
 import { useRoute } from './hooks/useRoute'
 
 /**
@@ -16,7 +15,6 @@ export default function App() {
     distanceNm,
     aircraftType, setAircraftType,
     aircraft,
-    rangeStatus,
     fuelGallons,   setFuelGallons,
     payloadLbs,    setPayloadLbs,
     resolvedFuelGallons,
@@ -26,8 +24,6 @@ export default function App() {
     weightStatus,
     effectiveRange,
   } = useRoute()
-
-  const [plannerOpen, setPlannerOpen] = useState(false)
 
   // Clamp payload down when max drops due to higher fuel load
   const handleFuelChange = useCallback((gallons) => {
@@ -40,10 +36,6 @@ export default function App() {
     // Future: nearest-airport snap from click
   }, [])
 
-  const handleCalculate = useCallback(() => {
-    // Calculation is reactive via useRoute
-  }, [])
-
   return (
     <div className="flex w-full h-full overflow-hidden bg-[#030712]">
       {/* Left sidebar */}
@@ -51,15 +43,18 @@ export default function App() {
         originIcao={originIcao}   setOriginIcao={setOriginIcao}
         destIcao={destIcao}       setDestIcao={setDestIcao}
         aircraftType={aircraftType} setAircraftType={setAircraftType}
-        aircraft={aircraft}
-        rangeStatus={rangeStatus}
-        fuelGallons={fuelGallons}
-        effectiveRange={effectiveRange}
         origin={origin}
         destination={destination}
         distanceNm={distanceNm}
-        onCalculate={handleCalculate}
-        onOpenPlanner={() => setPlannerOpen(true)}
+        fuelGallons={resolvedFuelGallons}
+        payloadLbs={payloadLbs}
+        maxPayloadLbs={maxPayloadLbs}
+        fuelWeightLbs={fuelWeightLbs}
+        totalWeightLbs={totalWeightLbs}
+        weightStatus={weightStatus}
+        effectiveRange={effectiveRange}
+        onFuelChange={handleFuelChange}
+        onPayloadChange={setPayloadLbs}
       />
 
       {/* Globe fills remaining space */}
@@ -70,23 +65,6 @@ export default function App() {
           onGlobeClick={handleGlobeClick}
         />
       </div>
-
-      {/* Flight planner modal */}
-      {plannerOpen && (
-        <FlightPlannerModal
-          aircraft={aircraft}
-          fuelGallons={resolvedFuelGallons}
-          payloadLbs={payloadLbs}
-          maxPayloadLbs={maxPayloadLbs}
-          fuelWeightLbs={fuelWeightLbs}
-          totalWeightLbs={totalWeightLbs}
-          weightStatus={weightStatus}
-          effectiveRange={effectiveRange}
-          onFuelChange={handleFuelChange}
-          onPayloadChange={setPayloadLbs}
-          onClose={() => setPlannerOpen(false)}
-        />
-      )}
     </div>
   )
 }

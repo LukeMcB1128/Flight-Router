@@ -76,15 +76,7 @@ function AirportInput({ label, value, onChange, resolvedAirport, accentColor }) 
 }
 
 /**
- * Sidebar — collapsible left panel with route inputs and results.
- *
- * Props:
- *   originIcao, setOriginIcao
- *   destIcao,   setDestIcao
- *   aircraftType, setAircraftType
- *   origin, destination   — resolved airport objects
- *   distanceNm            — great-circle distance or null
- *   onCalculate           — called when Calculate Route is pressed
+ * Sidebar — collapsible left panel with route inputs, flight planner, and results.
  */
 export default function Sidebar({
   originIcao, setOriginIcao,
@@ -92,16 +84,26 @@ export default function Sidebar({
   aircraftType, setAircraftType,
   origin, destination,
   distanceNm,
-  onOpenPlanner,
+  fuelGallons,
+  payloadLbs,
+  maxPayloadLbs,
+  fuelWeightLbs,
+  totalWeightLbs,
+  weightStatus,
+  effectiveRange,
+  onFuelChange,
+  onPayloadChange,
 }) {
   const [open, setOpen] = useState(true)
 
   // Resolve the full aircraft object from the selected key (e.g. "SR22")
   const aircraft = AIRCRAFTS[aircraftType] ?? null
 
-  // Range status requires both a route and a selected aircraft
-  const rangeStatus = distanceNm !== null && aircraft
-    ? distanceNm <= aircraft.range ? 'within-range' : 'exceeds-range'
+  const isOverMTOW = weightStatus === 'over-mtow'
+
+  // Range status based on effective range (fuel-adjusted) vs distance
+  const rangeStatus = distanceNm !== null && effectiveRange !== null
+    ? distanceNm <= effectiveRange ? 'within-range' : 'exceeds-range'
     : null
 
   const rangeLabel = {
@@ -216,19 +218,94 @@ export default function Sidebar({
             )}
           </section>
 
-          {/* ── Flight Planner button ───────────────────────────── */}
-          <button
-            onClick={onOpenPlanner}
-            disabled={!origin || !destination}
-            className="
-              w-full py-2.5 rounded-lg text-sm font-semibold
-              bg-blue-600 hover:bg-blue-500 active:bg-blue-700
-              disabled:bg-slate-800 disabled:text-slate-600 disabled:cursor-not-allowed
-              text-white transition-colors
-            "
-          >
-            Open Flight Planner
-          </button>
+          {/* ── Flight Planner ─────────────────────────────── */}
+          {aircraft && (
+            <section className="space-y-4">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+                Flight Planner
+              </h2>
+
+              {/* Fuel slider */}
+              <div>
+                <div className="flex justify-between text-xs text-slate-400 mb-1.5">
+                  <span className="uppercase tracking-widest">Fuel Load</span>
+                  <span>{fuelGallons} gal · {fuelWeightLbs} lbs</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={aircraft.fuel_full}
+                  step={1}
+                  value={fuelGallons}
+                  onChange={(e) => onFuelChange(Number(e.target.value))}
+                  className="w-full accent-sky-500"
+                />
+                <div className="flex justify-between text-xs text-slate-600 mt-1">
+                  <span>0 gal</span>
+                  <span>{aircraft.fuel_full} gal (full)</span>
+                </div>
+              </div>
+
+              {/* Payload slider */}
+              <div>
+                <div className="flex justify-between text-xs text-slate-400 mb-1.5">
+                  <span className="uppercase tracking-widest">Payload</span>
+                  <span>{payloadLbs} lbs</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={maxPayloadLbs}
+                  step={1}
+                  value={payloadLbs}
+                  onChange={(e) => onPayloadChange(Number(e.target.value))}
+                  className="w-full accent-sky-500"
+                />
+                <div className="flex justify-between text-xs text-slate-600 mt-1">
+                  <span>0 lbs</span>
+                  <span>{maxPayloadLbs} lbs (max)</span>
+                </div>
+              </div>
+
+              {/* Weight summary */}
+              <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50 space-y-1.5 text-xs">
+                <div className="flex justify-between text-slate-500">
+                  <span>Empty (OEW)</span>
+                  <span>{aircraft.OEW?.toLocaleString()} lbs</span>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>Fuel</span>
+                  <span>{fuelWeightLbs?.toLocaleString()} lbs</span>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>Payload</span>
+                  <span>{payloadLbs?.toLocaleString()} lbs</span>
+                </div>
+                <div className="border-t border-slate-700 pt-1.5 flex justify-between font-semibold text-sm">
+                  <span className="text-slate-300">Total</span>
+                  <span className={isOverMTOW ? 'text-red-400' : 'text-white'}>
+                    {totalWeightLbs?.toLocaleString()} lbs
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>MTOW limit</span>
+                  <span>{aircraft.MTOW?.toLocaleString()} lbs</span>
+                </div>
+              </div>
+
+              {/* Weight / range status */}
+              <div className={`rounded-lg px-3 py-2 text-xs text-center font-medium border ${
+                isOverMTOW
+                  ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                  : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+              }`}>
+                {isOverMTOW
+                  ? `Over MTOW by ${(totalWeightLbs - aircraft.MTOW).toLocaleString()} lbs`
+                  : `Within limits — ${effectiveRange} nm range`
+                }
+              </div>
+            </section>
+          )}
 
           {/* ── Results ────────────────────────────────────── */}
           <section className="space-y-3">
