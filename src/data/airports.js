@@ -19,6 +19,8 @@ export const AIRPORTS = {
   SBGR: { icao: 'SBGR', name: 'São Paulo Guarulhos',  city: 'São Paulo',   lat: -23.4356, lng: -46.4731  },
   WSSS: { icao: 'WSSS', name: 'Singapore Changi',     city: 'Singapore',   lat: 1.3644,   lng: 103.9915  },
   VIDP: { icao: 'VIDP', name: 'Indira Gandhi Intl',   city: 'New Delhi',   lat: 28.5562,  lng: 77.1000   },
+  KEDC: { icao: 'KEDC', name: 'Austin Executive Airport', city: 'Austin', lat: 30.4001, lng: -97.5738    },
+  KATL: { icao: 'KATL', name: 'Hartsfield-Jackson Atlanta Intl', city: 'Atlanta', lat: 33.6407, lng: -84.4279 },
 }
 
 /**
