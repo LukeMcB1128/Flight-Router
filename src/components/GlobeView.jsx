@@ -69,7 +69,7 @@ export default function GlobeView({ origin, destination, onGlobeClick }) {
     clearTimeout(idleTimerRef.current)
     idleTimerRef.current = setTimeout(() => {
       if (globeRef.current) globeRef.current.controls().autoRotate = true
-    }, 3000) // resume rotation after 3 s of inactivity
+    }, 10000) // resume rotation after 3 s of inactivity
   }, [])
 
   useEffect(() => {

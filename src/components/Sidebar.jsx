@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AIRPORTS } from '../data/airports'
+import { AIRCRAFTS } from '../data/aircrafts'
 
 // Chevron icon for collapse toggle
 function ChevronIcon({ open }) {
@@ -28,8 +29,8 @@ function PlaneIcon() {
  * Shows a coloured status dot and the resolved airport name below.
  */
 function AirportInput({ label, value, onChange, resolvedAirport, accentColor }) {
-  const isValid   = resolvedAirport !== null
-  const hasInput  = value.trim().length > 0
+  const isValid  = resolvedAirport !== null
+  const hasInput = value.trim().length > 0
 
   return (
     <div className="space-y-1">
@@ -95,9 +96,12 @@ export default function Sidebar({
 }) {
   const [open, setOpen] = useState(true)
 
-  // Placeholder range logic — will be replaced when aircraft data is wired in
-  const rangeStatus = distanceNm !== null
-    ? distanceNm <= 4000 ? 'within-range' : 'exceeds-range'
+  // Resolve the full aircraft object from the selected key (e.g. "SR22")
+  const aircraft = AIRCRAFTS[aircraftType] ?? null
+
+  // Range status requires both a route and a selected aircraft
+  const rangeStatus = distanceNm !== null && aircraft
+    ? distanceNm <= aircraft.range ? 'within-range' : 'exceeds-range'
     : null
 
   const rangeLabel = {
@@ -188,18 +192,28 @@ export default function Sidebar({
             <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">
               Aircraft
             </h2>
-            <input
-              type="text"
+            <select
               value={aircraftType}
               onChange={(e) => setAircraftType(e.target.value)}
-              placeholder="e.g. Boeing 737, Cessna 172"
               className="
                 w-full bg-slate-800/70 border border-slate-700 rounded-lg
-                px-3 py-2 text-sm text-white placeholder-slate-600
+                px-3 py-2 text-sm text-white
                 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40
                 transition-colors
               "
-            />
+            >
+              <option value="">Select aircraft</option>
+              {Object.entries(AIRCRAFTS).map(([key, ac]) => (
+                <option key={key} value={key}>{ac.type}</option>
+              ))}
+            </select>
+
+            {/* Aircraft stats — shown once a type is selected */}
+            {aircraft && (
+              <p className="text-xs text-slate-400 px-1">
+                Max range {aircraft.range.toLocaleString()} nm · {aircraft.speed} kts
+              </p>
+            )}
           </section>
 
           {/* ── Calculate button ───────────────────────────── */}
@@ -242,7 +256,11 @@ export default function Sidebar({
                 ? rangeColor[rangeStatus]
                 : 'text-slate-600 bg-slate-800/30 border-slate-700/30'}
             `}>
-              {rangeStatus ? rangeLabel[rangeStatus] : 'Set a route to check range'}
+              {rangeStatus
+                ? rangeLabel[rangeStatus]
+                : distanceNm !== null
+                  ? 'Select an aircraft to check range'
+                  : 'Set a route to check range'}
             </div>
 
             {/* Refuel stops placeholder */}
