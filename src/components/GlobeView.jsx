@@ -68,7 +68,7 @@ export default function GlobeView({ origin, destination, onGlobeClick }) {
 
     clearTimeout(idleTimerRef.current)
     idleTimerRef.current = setTimeout(() => {
-      if (globeRef.current) globeRef.current.controls().autoRotate = true
+      if (globeRef.current && !originRef.current && !destinationRef.current) globeRef.current.controls().autoRotate = true
     }, 10000) // resume rotation after 10 s of inactivity
   }, [])
 
@@ -115,7 +115,7 @@ export default function GlobeView({ origin, destination, onGlobeClick }) {
         lng:   origin.lng,
         label: `${origin.icao} — ${origin.name}`,
         color: '#3b82f6',   // blue-500
-        radius: 0.6,
+        radius: 0.3,
         altitude: 0.015,
       })
     }
@@ -126,7 +126,7 @@ export default function GlobeView({ origin, destination, onGlobeClick }) {
         lng:   destination.lng,
         label: `${destination.icao} — ${destination.name}`,
         color: '#ef4444',   // red-500
-        radius: 0.6,
+        radius: 0.3,
         altitude: 0.015,
       })
     }
