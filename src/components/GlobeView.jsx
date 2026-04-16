@@ -35,6 +35,9 @@ export default function GlobeView({ origin, destination, onGlobeClick }) {
       // Camera controls
       .enablePointerInteraction(true)
 
+      // resolution
+      .hexPolygonResolution(500)
+
     // Start slow auto-rotation
     globe.controls().autoRotate      = true
     globe.controls().autoRotateSpeed = 0.4

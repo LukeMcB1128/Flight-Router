@@ -19,7 +19,7 @@ export const AIRPORTS = {
   SBGR: { icao: 'SBGR', name: 'São Paulo Guarulhos', city: 'São Paulo', lat: -23.4356, lng: -46.4731, runway_length: 12139, runway_count: 2 },
   WSSS: { icao: 'WSSS', name: 'Singapore Changi', city: 'Singapore', lat: 1.3644, lng: 103.9915, runway_length: 13123, runway_count: 3 },
   VIDP: { icao: 'VIDP', name: 'Indira Gandhi Intl', city: 'New Delhi', lat: 28.5562, lng: 77.1000, runway_length: 14534, runway_count: 4 },
-  KATL: { icao: 'KATL', name: 'Hartsfield-Jackson Atlanta Intl', city: 'Atlanta', lat: 33.6407, lng: -84.4279, runway_length: 12390, runway_count: 5 },
+  KATL: { icao: 'KATL', name: 'Hartsfield-Jackson Atlanta Intl', city: 'Atlanta', lat: 33.6323715028806, lng: -84.43355603362959, runway_length: 12390, runway_count: 5 },
   KDFW: { icao: 'KDFW', name: 'Dallas/Fort Worth Intl', city: 'Dallas-Fort Worth', lat: 32.8959, lng: -97.0372, runway_length: 13401, runway_count: 7 },
   KIAH: { icao: 'KIAH', name: 'George Bush Intercontinental', city: 'Houston', lat: 29.9844, lng: -95.3414, runway_length: 12002, runway_count: 5 },
   KAUS: { icao: 'KAUS', name: 'Austin-Bergstrom Intl', city: 'Austin', lat: 30.1945, lng: -97.6699, runway_length: 12250, runway_count: 2 },
