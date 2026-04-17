@@ -4,7 +4,7 @@
  */
 
 const MODES = [
-  { key: 'globe',  label: 'Globe',  icon: '🌍' },
+  //{ key: 'globe',  label: 'Globe',  icon: '🌍' },
   { key: 'us-map', label: 'Map',    icon: '🗺️'  },
   { key: 'region', label: 'Region', icon: '🔍'  },
 ]
