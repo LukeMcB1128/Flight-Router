@@ -1,8 +1,10 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef } from 'react'
 import Globe from 'globe.gl'
 
 /**
  * GlobeView — wraps Globe.gl in a React component.
+ * Centered on the continental US with state polygon outlines.
+ * Auto-rotation is disabled (US-focused app, spinning away makes no sense).
  *
  * Props:
  *   origin      — airport object { lat, lng, icao, name } | null
@@ -11,8 +13,7 @@ import Globe from 'globe.gl'
  */
 export default function GlobeView({ origin, destination, onGlobeClick }) {
   const containerRef = useRef(null)
-  const globeRef     = useRef(null)    // holds the Globe.gl instance
-  const idleTimerRef = useRef(null)    // auto-rotate idle timer
+  const globeRef     = useRef(null)
 
   // ── Initialise globe once on mount ──────────────────────────────────────
   useEffect(() => {
@@ -22,7 +23,7 @@ export default function GlobeView({ origin, destination, onGlobeClick }) {
     const globe = Globe()(el)
 
     globe
-      // Earth textures — use Globe.gl bundled assets
+      // Earth textures
       .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
       .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
       .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
@@ -32,16 +33,36 @@ export default function GlobeView({ origin, destination, onGlobeClick }) {
       .atmosphereColor('#1e40af')
       .atmosphereAltitude(0.15)
 
-      // Camera controls
+      // Pointer interaction
       .enablePointerInteraction(true)
 
-    // Start slow auto-rotation
-    globe.controls().autoRotate      = true
-    globe.controls().autoRotateSpeed = 0.4
-    globe.controls().enableDamping   = true
-    globe.controls().dampingFactor   = 0.1
+    // Lock initial view to the continental US
+    globe.pointOfView({ lat: 38.5, lng: -97.0, altitude: 2.2 }, 0)
+
+    // Camera controls — no auto-rotation, constrained zoom
+    const controls = globe.controls()
+    controls.autoRotate   = false
+    controls.enableDamping = true
+    controls.dampingFactor = 0.1
+    controls.minDistance   = 150   // prevent zooming inside the globe
+    controls.maxDistance   = 400   // ~altitude 2.5 — full CONUS visible
 
     globeRef.current = globe
+
+    // Fetch US state boundaries and render as faint polygon outlines
+    fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json')
+      .then(r => r.json())
+      .then(({ features }) => {
+        if (!globeRef.current) return   // guard: component may have unmounted during fetch
+        globeRef.current
+          .polygonsData(features)
+          .polygonGeoJsonGeometry('geometry')
+          .polygonCapColor(() => 'rgba(0, 0, 0, 0)')      // transparent fill
+          .polygonSideColor(() => 'rgb(0, 0, 0)')
+          .polygonStrokeColor(() => '#334155')          // slate-700 border
+          .polygonAltitude(0.005)                       // nearly flush with the surface
+      })
+      .catch(err => console.error('Failed to load US states GeoJSON:', err))
 
     // Fit to container
     const resize = () => {
@@ -53,54 +74,17 @@ export default function GlobeView({ origin, destination, onGlobeClick }) {
 
     return () => {
       window.removeEventListener('resize', resize)
-      // Globe.gl doesn't expose a destroy() — clearing the container is enough
       el.innerHTML = ''
       globeRef.current = null
     }
   }, [])
 
-  // ── Idle auto-rotate management ─────────────────────────────────────────
-  const resetIdleTimer = useCallback(() => {
-    const globe = globeRef.current
-    if (!globe) return
-
-    globe.controls().autoRotate = false
-
-    clearTimeout(idleTimerRef.current)
-    idleTimerRef.current = setTimeout(() => {
-      if (globeRef.current) globeRef.current.controls().autoRotate = true
-    }, 10000) // resume rotation after 10 s of inactivity
-  }, [])
-
-  useEffect(() => {
-    const globe = globeRef.current
-    if (!globe) return
-
-    // pause auto rotate when route is set
-    if (origin || destination) {
-      globe.controls().autoRotate = false
-      clearTimeout(idleTimerRef.current)
-    } else {
-      globe.controls().autoRotate = true
-    }
-  }, [origin, destination])
-
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    el.addEventListener('pointerdown', resetIdleTimer)
-    return () => el.removeEventListener('pointerdown', resetIdleTimer)
-  }, [resetIdleTimer])
-
   // ── Click handler — forward lat/lng up to parent ─────────────────────────
   useEffect(() => {
     const globe = globeRef.current
     if (!globe || !onGlobeClick) return
-    globe.onGlobeClick(({ lat, lng }) => {
-      resetIdleTimer()
-      onGlobeClick(lat, lng)
-    })
-  }, [onGlobeClick, resetIdleTimer])
+    globe.onGlobeClick(({ lat, lng }) => onGlobeClick(lat, lng))
+  }, [onGlobeClick])
 
   // ── Markers (points) ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -111,22 +95,22 @@ export default function GlobeView({ origin, destination, onGlobeClick }) {
 
     if (origin) {
       points.push({
-        lat:   origin.lat,
-        lng:   origin.lng,
-        label: `${origin.icao} — ${origin.name}`,
-        color: '#3b82f6',   // blue-500
-        radius: 0.6,
+        lat:      origin.lat,
+        lng:      origin.lng,
+        label:    `${origin.icao} — ${origin.name}`,
+        color:    '#3b82f6',   // blue-500
+        radius:   0.3,
         altitude: 0.015,
       })
     }
 
     if (destination) {
       points.push({
-        lat:   destination.lat,
-        lng:   destination.lng,
-        label: `${destination.icao} — ${destination.name}`,
-        color: '#ef4444',   // red-500
-        radius: 0.6,
+        lat:      destination.lat,
+        lng:      destination.lng,
+        label:    `${destination.icao} — ${destination.name}`,
+        color:    '#ef4444',   // red-500
+        radius:   0.3,
         altitude: 0.015,
       })
     }
@@ -148,11 +132,11 @@ export default function GlobeView({ origin, destination, onGlobeClick }) {
 
     const arcs = (origin && destination)
       ? [{
-          startLat:  origin.lat,
-          startLng:  origin.lng,
-          endLat:    destination.lat,
-          endLng:    destination.lng,
-          color:     ['#60a5fa', '#f87171'],  // blue → red gradient
+          startLat: origin.lat,
+          startLng: origin.lng,
+          endLat:   destination.lat,
+          endLng:   destination.lng,
+          color:    ['#60a5fa', '#f87171'],   // blue → red gradient
         }]
       : []
 
@@ -163,11 +147,11 @@ export default function GlobeView({ origin, destination, onGlobeClick }) {
       .arcEndLat('endLat')
       .arcEndLng('endLng')
       .arcColor('color')
-      .arcAltitudeAutoScale(0.35)   // arc height proportional to distance
+      .arcAltitudeAutoScale(0.35)
       .arcStroke(0.5)
-      .arcDashLength(0.4)           // animated dash
+      .arcDashLength(0.4)
       .arcDashGap(0.2)
-      .arcDashAnimateTime(2000)     // ms per full cycle → pulsing effect
+      .arcDashAnimateTime(2000)
   }, [origin, destination])
 
   // ── Auto-pan to fit both airports when route is set ──────────────────────
@@ -175,11 +159,19 @@ export default function GlobeView({ origin, destination, onGlobeClick }) {
     const globe = globeRef.current
     if (!globe || !origin || !destination) return
 
-    // Midpoint
     const midLat = (origin.lat + destination.lat) / 2
     const midLng = (origin.lng + destination.lng) / 2
-
     globe.pointOfView({ lat: midLat, lng: midLng, altitude: 2.2 }, 1200)
+  }, [origin, destination])
+
+  // ── Auto-pan to a single airport when entered ─────────────────────────────
+  useEffect(() => {
+    const globe = globeRef.current
+    if (!globe || (origin && destination)) return
+
+    const target = origin || destination
+    if (!target) return
+    globe.pointOfView({ lat: target.lat, lng: target.lng, altitude: 2.2 }, 1200)
   }, [origin, destination])
 
   return (

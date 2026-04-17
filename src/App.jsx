@@ -1,6 +1,7 @@
-import { useCallback } from 'react'
-import GlobeView from './components/GlobeView'
+import { useCallback, useState } from 'react'
+import MapView from './components/MapView'
 import Sidebar from './components/Sidebar'
+import ViewModeSwitcher from './components/ViewModeSwitcher'
 import { useRoute } from './hooks/useRoute'
 
 /**
@@ -14,24 +15,28 @@ export default function App() {
     origin, destination,
     distanceNm,
     aircraftType, setAircraftType,
+    aircraft,
+    fuelGallons,   setFuelGallons,
+    payloadLbs,    setPayloadLbs,
+    resolvedFuelGallons,
+    fuelWeightLbs,
+    maxPayloadLbs,
+    totalWeightLbs,
+    weightStatus,
+    effectiveRange,
   } = useRoute()
 
-  /**
-   * Globe click handler.
-   * First click sets origin, second sets destination.
-   * A third click resets and starts over.
-   */
-  const handleGlobeClick = useCallback((lat, lng) => {
-    // We don't auto-place from click in this foundation build —
-    // airports must match the hardcoded dataset. The globe click
-    // is wired but finding the nearest airport is a future feature.
-    // For now, clicking the globe is a no-op (inputs drive state).
-  }, [])
+  // Clamp payload down when max drops due to higher fuel load
+  const handleFuelChange = useCallback((gallons) => {
+    setFuelGallons(gallons)
+    const newMax = Math.max(0, aircraft.MTOW - aircraft.OEW - gallons * 6)
+    if (payloadLbs > newMax) setPayloadLbs(newMax)
+  }, [aircraft, payloadLbs, setFuelGallons, setPayloadLbs])
 
-  const handleCalculate = useCallback(() => {
-    // Calculation is reactive via useRoute — pressing the button
-    // currently has no extra side-effect. This handler is the hook
-    // for future async work (API calls, range checks, etc.).
+  const [viewMode, setViewMode] = useState('us-map')
+
+  const handleGlobeClick = useCallback(() => {
+    // Future: nearest-airport snap from click
   }, [])
 
   return (
@@ -44,16 +49,27 @@ export default function App() {
         origin={origin}
         destination={destination}
         distanceNm={distanceNm}
-        onCalculate={handleCalculate}
+        fuelGallons={resolvedFuelGallons}
+        payloadLbs={payloadLbs}
+        maxPayloadLbs={maxPayloadLbs}
+        fuelWeightLbs={fuelWeightLbs}
+        totalWeightLbs={totalWeightLbs}
+        weightStatus={weightStatus}
+        effectiveRange={effectiveRange}
+        onFuelChange={handleFuelChange}
+        onPayloadChange={setPayloadLbs}
       />
 
-      {/* Globe fills remaining space */}
+      {/* Map fills remaining space — switcher is a sibling of MapView so it
+           sits above the WebGL canvas in the pointer-event hit-test order */}
       <div className="flex-1 relative">
-        <GlobeView
+        <MapView
           origin={origin}
           destination={destination}
+          viewMode={viewMode}
           onGlobeClick={handleGlobeClick}
         />
+        <ViewModeSwitcher viewMode={viewMode} setViewMode={setViewMode} />
       </div>
     </div>
   )
