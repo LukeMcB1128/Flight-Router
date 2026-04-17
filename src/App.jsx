@@ -1,6 +1,7 @@
-import { useCallback } from 'react'
-import GlobeView from './components/GlobeView'
+import { useCallback, useState } from 'react'
+import MapView from './components/MapView'
 import Sidebar from './components/Sidebar'
+import ViewModeSwitcher from './components/ViewModeSwitcher'
 import { useRoute } from './hooks/useRoute'
 
 /**
@@ -32,6 +33,8 @@ export default function App() {
     if (payloadLbs > newMax) setPayloadLbs(newMax)
   }, [aircraft, payloadLbs, setFuelGallons, setPayloadLbs])
 
+  const [viewMode, setViewMode] = useState('us-map')
+
   const handleGlobeClick = useCallback(() => {
     // Future: nearest-airport snap from click
   }, [])
@@ -57,13 +60,16 @@ export default function App() {
         onPayloadChange={setPayloadLbs}
       />
 
-      {/* Globe fills remaining space */}
+      {/* Map fills remaining space — switcher is a sibling of MapView so it
+           sits above the WebGL canvas in the pointer-event hit-test order */}
       <div className="flex-1 relative">
-        <GlobeView
+        <MapView
           origin={origin}
           destination={destination}
+          viewMode={viewMode}
           onGlobeClick={handleGlobeClick}
         />
+        <ViewModeSwitcher viewMode={viewMode} setViewMode={setViewMode} />
       </div>
     </div>
   )
