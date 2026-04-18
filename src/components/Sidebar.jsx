@@ -106,6 +106,35 @@ export default function Sidebar({
     ? distanceNm <= effectiveRange ? 'within-range' : 'exceeds-range'
     : null
 
+  // can my plane take off/land at this airport?
+  const takeoffStatus = aircraft && origin?.runway_length
+    ? aircraft.takeoff_distance_dry * (1 + totalWeightLbs / aircraft.MTOW) <= origin.runway_length
+      ? 'can-takeoff' : 'cant-takeoff'
+    : null
+
+  const landingStatus = aircraft && destination?.runway_length
+    ? aircraft.landing_ground_roll * (1 + totalWeightLbs / aircraft.MTOW) <= destination.runway_length
+      ? 'can-land' : 'cant-land'
+    : null
+
+  const takeoffLandingStatus = takeoffStatus && landingStatus
+    ? `${takeoffStatus}-${landingStatus}`
+    : null
+
+  const takeoffLandingLabel = {
+    'can-takeoff-can-land': `Both runways are sufficient for takeoff and landing`,
+    'cant-takeoff-can-land': `Runway too short for takeoff-landing runway is sufficient`,
+    'can-takeoff-cant-land': `Takeoff runway is sufficient-landing runway too short`,
+    'cant-takeoff-land': `Both runways are too short for takeoff and landing`,
+  }
+
+  const takeoffLandingColor = {
+    'can-takeoff-can-land': 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
+    'cant-takeoff-can-land': 'text-red-400 bg-red-400/10 border-red-400/30',
+    'can-takeoff-cant-land': 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
+    'cant-takeoff-land': 'text-red-400 bg-red-400/10 border-red-400/30',
+  }
+
   const rangeLabel = {
     'within-range':  'Within range',
     'exceeds-range': 'Exceeds range',
@@ -339,6 +368,69 @@ export default function Sidebar({
                   ? 'Select an aircraft to check range'
                   : 'Set a route to check range'}
             </div>
+
+            {/*Airport Stats*/}
+            {(origin || destination) && (
+              <section className="space-y-3">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+                  Airport Info
+                </h2>
+
+                {[origin, destination].filter(Boolean).map((ap) => (
+                  <div
+                    key={ap.icao}
+                    className="bg-slate-800/50 rounded-lg p-3 border-slate-700/50 space-y-1.5 text-xs"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-mono text-sm font-bold text-white">{ap.icao}</span>
+                      <span className="text-slate-400 truncate ml-2">{ap.city}</span>
+                    </div>
+                    <p className="text-slate-400 truncate">{ap.name}</p>
+                    <div className="border-t border-slate-700 pt-1.5 space-y-1">
+                      <div className="flex justify-between text-slate-500">
+                        <span>Latitude</span>
+                        <span className="font-mono">{ap.lat?.toFixed(4) ?? 'N/A'}°</span>
+                      </div>
+                      <div className="flex justify-between text-slate-500">
+                        <span>Longitude</span>
+                        <span className="font-mono">{ap.lng?.toFixed(4) ?? 'N/A'}°</span>
+                      </div>
+                      {ap.elevation !== undefined && (
+                        <div className="flex justify-between text-slate-500">
+                          <span>Elevation</span>
+                          <span className="font-mono">{ap.elevation.toLocaleString() ?? 'N/A'} ft</span>
+                        </div>
+                      )}
+                      {ap.runway_count !== undefined && (
+                        <div className="flex justify-between text-slate-500">
+                          <span>Runway Count</span>
+                          <span className="font-mono">{ap.runway_count}</span>
+                        </div>
+                      )}
+                      {ap.runway_length !== undefined && (
+                        <div className="flex justify-between text-slate-500">
+                          <span>Runway Length</span>
+                          <span className="font-mono">{ap.runway_length.toLocaleString() ?? 'N/A'} ft</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {(origin && destination) && (
+                  <div className={`
+                    rounded-lg px-3 py-2 border text-sm font-medium
+                    ${takeoffLandingStatus
+                      ? takeoffLandingColor[takeoffLandingStatus]
+                      : 'text-slate-600 bg-slate-800/30 border-slate-700/30'}
+                    `}>
+                      {takeoffLandingStatus
+                        ? takeoffLandingLabel[takeoffLandingStatus]
+                        : 'Select an aircraft to check takeoff and landing performance'
+                      }
+                  </div>
+                )}
+              </section>
+            )}
 
             {/* Refuel stops placeholder */}
             <div className="space-y-2">
