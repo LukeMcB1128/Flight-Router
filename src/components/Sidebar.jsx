@@ -340,7 +340,7 @@ export default function Sidebar({
               </p>
               <div className="flex justify-end text-xs text-slate-600">
                 {distanceNm !== null
-                  ? `~${(distanceNm * aircraft.speed / 60).toLocaleString()} min at ${aircraft.speed} kts`
+                  ? `~${((distanceNm / aircraft.speed) * 60).toFixed(0)} min(${(((distanceNm / aircraft.speed)*60)/60).toFixed(0)} hours) at ${aircraft.speed} kts`
                   : <span className="text-slate-600 text-base font-normal">-</span>
                 }
               </div>
