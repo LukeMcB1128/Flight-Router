@@ -84,6 +84,7 @@ export default function Sidebar({
   aircraftType, setAircraftType,
   origin, destination,
   distanceNm,
+  speed,
   fuelGallons,
   payloadLbs,
   maxPayloadLbs,
@@ -122,9 +123,9 @@ export default function Sidebar({
     : null
 
   const takeoffLandingLabel = {
-    'can-takeoff-can-land': `Both runways are sufficient for takeoff and landing`,
-    'cant-takeoff-can-land': `Runway too short for takeoff-landing runway is sufficient`,
-    'can-takeoff-cant-land': `Takeoff runway is sufficient-landing runway too short`,
+    'can-takeoff-can-land': `Both runways are sufficient distance for takeoff and landing`,
+    'cant-takeoff-can-land': `Runway too short for takeoff-landing runway is sufficient distance`,
+    'can-takeoff-cant-land': `Takeoff runway is sufficient distance-landing runway too short`,
     'cant-takeoff-land': `Both runways are too short for takeoff and landing`,
   }
 
@@ -156,22 +157,6 @@ export default function Sidebar({
         h-full shrink-0
       `}
     >
-      {/* Collapse toggle */}
-      <button
-        onClick={() => setOpen(!open)}
-        className="
-          absolute -right-3 top-6 z-20
-          w-6 h-6 rounded-full
-          bg-slate-800 border border-slate-700
-          flex items-center justify-center
-          text-slate-400 hover:text-white
-          hover:bg-slate-700 transition-colors
-        "
-        title={open ? 'Collapse sidebar' : 'Expand sidebar'}
-      >
-        <ChevronIcon open={open} />
-      </button>
-
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-5 border-b border-slate-800 shrink-0">
         <PlaneIcon />
@@ -345,7 +330,7 @@ export default function Sidebar({
             {/* Distance */}
             <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50 space-y-1">
               <p className="text-xs text-slate-500 uppercase tracking-wider">
-                Great-circle distance
+                Distance (great circle)
               </p>
               <p className="text-2xl font-bold text-white tabular-nums">
                 {distanceNm !== null
@@ -353,6 +338,12 @@ export default function Sidebar({
                   : <span className="text-slate-600 text-base font-normal">—</span>
                 }
               </p>
+              <div className="flex justify-end text-xs text-slate-600">
+                {distanceNm !== null
+                  ? `~${((distanceNm / aircraft.speed) * 60).toFixed(0)} min(${(((distanceNm / aircraft.speed)*60)/60).toFixed(0)} hours) at ${aircraft.speed} kts`
+                  : <span className="text-slate-600 text-base font-normal">-</span>
+                }
+              </div>
             </div>
 
             {/* Range status */}
