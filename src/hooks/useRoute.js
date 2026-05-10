@@ -28,8 +28,14 @@ function haversineNm(lat1, lng1, lat2, lng2) {
 
 /**
  * useRoute — manages origin/destination state and route calculations.
+ *
+ * @param {object} [opts]
+ * @param {boolean} [opts.airportsReady=false]
+ *   Flip this to `true` once fetchAirports() resolves so that the origin /
+ *   destination useMemos re-run against the fully populated _airportIndex,
+ *   even when the user has already typed an ICAO code.
  */
-export function useRoute() {
+export function useRoute({ airportsReady = false } = {}) {
   const [originIcao, setOriginIcaoRaw] = useState('')
   const [destIcao, setDestIcaoRaw]     = useState('')
   const [aircraftType, setAircraftType] = useState('')
@@ -40,9 +46,11 @@ export function useRoute() {
   const setOriginIcao = (v) => setOriginIcaoRaw(v.toUpperCase())
   const setDestIcao   = (v) => setDestIcaoRaw(v.toUpperCase())
 
-  // Resolve airport and aircraft objects
-  const origin      = useMemo(() => findAirport(originIcao), [originIcao])
-  const destination = useMemo(() => findAirport(destIcao),   [destIcao])
+  // Resolve airport and aircraft objects.
+  // `airportsReady` is included as a dependency so these re-run once the
+  // NTAD API fetch completes and _airportIndex is fully populated.
+  const origin      = useMemo(() => findAirport(originIcao), [originIcao, airportsReady]) // eslint-disable-line react-hooks/exhaustive-deps
+  const destination = useMemo(() => findAirport(destIcao),   [destIcao,   airportsReady]) // eslint-disable-line react-hooks/exhaustive-deps
   const aircraft    = useMemo(() => findAircraft(aircraftType), [aircraftType])
 
   // Reset fuel and payload when aircraft changes

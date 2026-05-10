@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { AIRPORTS } from '../data/airports'
+import { useState, useMemo } from 'react'
 import { AIRCRAFTS } from '../data/aircrafts'
 
 // Chevron icon for collapse toggle
@@ -75,6 +74,9 @@ function AirportInput({ label, value, onChange, resolvedAirport, accentColor }) 
   )
 }
 
+// Maximum number of airports shown in the browser list at one time.
+const LIST_LIMIT = 30
+
 /**
  * Sidebar — collapsible left panel with route inputs, flight planner, and results.
  */
@@ -84,7 +86,6 @@ export default function Sidebar({
   aircraftType, setAircraftType,
   origin, destination,
   distanceNm,
-  speed,
   fuelGallons,
   payloadLbs,
   maxPayloadLbs,
@@ -94,8 +95,29 @@ export default function Sidebar({
   effectiveRange,
   onFuelChange,
   onPayloadChange,
+  // Live airport dataset from the NTAD API (or fallback)
+  airports       = [],
+  airportsReady  = false,
+  airportsError  = false,
+  fetchProgress  = { loaded: 0, total: 0 },
 }) {
   const [open, setOpen] = useState(true)
+  const [airportSearch, setAirportSearch] = useState('')
+
+  // Filter and cap the airport browser list.
+  const filteredAirports = useMemo(() => {
+    const q = airportSearch.trim().toUpperCase()
+    if (!q) return airports.slice(0, LIST_LIMIT)
+    return airports
+      .filter(
+        (ap) =>
+          ap.icao.includes(q) ||
+          ap.name.toUpperCase().includes(q) ||
+          ap.city.toUpperCase().includes(q) ||
+          (ap.state ?? '').toUpperCase().includes(q)
+      )
+      .slice(0, LIST_LIMIT)
+  }, [airports, airportSearch])
 
   // Resolve the full aircraft object from the selected key (e.g. "SR22")
   const aircraft = AIRCRAFTS[aircraftType] ?? null
@@ -339,9 +361,11 @@ export default function Sidebar({
                 }
               </p>
               <div className="flex justify-end text-xs text-slate-600">
-                {distanceNm !== null
-                  ? `~${((distanceNm / aircraft.speed) * 60).toFixed(0)} min(${(((distanceNm / aircraft.speed)*60)/60).toFixed(0)} hours) at ${aircraft.speed} kts`
-                  : <span className="text-slate-600 text-base font-normal">-</span>
+                {distanceNm !== null && aircraft
+                  ? `~${((distanceNm / aircraft.speed) * 60).toFixed(0)} min (${(((distanceNm / aircraft.speed) * 60) / 60).toFixed(1)} hrs) at ${aircraft.speed} kts`
+                  : distanceNm !== null
+                    ? 'Select an aircraft to see flight time'
+                    : '—'
                 }
               </div>
             </div>
@@ -386,22 +410,22 @@ export default function Sidebar({
                         <span>Longitude</span>
                         <span className="font-mono">{ap.lng?.toFixed(4) ?? 'N/A'}°</span>
                       </div>
-                      {ap.elevation !== undefined && (
+                      {ap.elevation != null && (
                         <div className="flex justify-between text-slate-500">
                           <span>Elevation</span>
-                          <span className="font-mono">{ap.elevation.toLocaleString() ?? 'N/A'} ft</span>
+                          <span className="font-mono">{ap.elevation.toLocaleString()} ft</span>
                         </div>
                       )}
-                      {ap.runway_count !== undefined && (
+                      {ap.runway_count != null && (
                         <div className="flex justify-between text-slate-500">
                           <span>Runway Count</span>
                           <span className="font-mono">{ap.runway_count}</span>
                         </div>
                       )}
-                      {ap.runway_length !== undefined && (
+                      {ap.runway_length != null && (
                         <div className="flex justify-between text-slate-500">
                           <span>Runway Length</span>
-                          <span className="font-mono">{ap.runway_length.toLocaleString() ?? 'N/A'} ft</span>
+                          <span className="font-mono">{ap.runway_length.toLocaleString()} ft</span>
                         </div>
                       )}
                     </div>
@@ -438,31 +462,94 @@ export default function Sidebar({
             </div>
           </section>
 
-          {/* ── Known airports hint ────────────────────────── */}
+          {/* ── Airport browser ────────────────────────────── */}
           <section className="space-y-2">
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-              Sample airports
-            </h2>
-            <div className="space-y-1">
-              {Object.values(AIRPORTS).map((ap) => (
-                <button
-                  key={ap.icao}
-                  onClick={() => {
-                    if (!origin) setOriginIcao(ap.icao)
-                    else setDestIcao(ap.icao)
-                  }}
-                  className="
-                    w-full text-left px-2 py-1 rounded
-                    text-xs text-slate-500 hover:text-slate-200
-                    hover:bg-slate-800/60 transition-colors
-                    font-mono
-                  "
-                >
-                  <span className="text-slate-300">{ap.icao}</span>
-                  <span className="ml-2 font-sans not-italic">{ap.city}</span>
-                </button>
-              ))}
+            {/* Header row: title + live record count */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+                Airports
+              </h2>
+              <span className="text-xs text-slate-600 tabular-nums">
+                {airportsReady ? (
+                  `${airports.length.toLocaleString()} airports`
+                ) : airportsError ? (
+                  'built-in fallback'
+                ) : fetchProgress.total > 0 ? (
+                  // Show a mini progress bar once we know the total
+                  <span className="flex items-center gap-1.5">
+                    <span className="relative w-16 h-1 rounded-full bg-slate-700 overflow-hidden">
+                      <span
+                        className="absolute inset-y-0 left-0 bg-sky-500 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.round((fetchProgress.loaded / fetchProgress.total) * 100)}%` }}
+                      />
+                    </span>
+                    <span>{fetchProgress.loaded.toLocaleString()}</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                    counting…
+                  </span>
+                )}
+              </span>
             </div>
+
+            {/* Error notice */}
+            {airportsError && (
+              <p className="text-xs text-amber-500/80 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1.5">
+                NTAD API unavailable — using built-in airport list.
+              </p>
+            )}
+
+            {/* Search input */}
+            <input
+              type="text"
+              value={airportSearch}
+              onChange={(e) => setAirportSearch(e.target.value)}
+              placeholder="Search ICAO, city, or name…"
+              className="
+                w-full bg-slate-800/70 border border-slate-700 rounded-lg
+                px-3 py-1.5 text-xs text-white placeholder-slate-600
+                focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40
+                transition-colors
+              "
+            />
+
+            {/* Airport list */}
+            <div className="space-y-0.5 max-h-64 overflow-y-auto sidebar-scroll">
+              {filteredAirports.length === 0 ? (
+                <p className="text-xs text-slate-600 px-2 py-3 text-center">
+                  {airports.length === 0 ? 'Loading…' : 'No airports match your search.'}
+                </p>
+              ) : (
+                filteredAirports.map((ap) => (
+                  <button
+                    key={ap.icao}
+                    onClick={() => {
+                      if (!origin) setOriginIcao(ap.icao)
+                      else         setDestIcao(ap.icao)
+                    }}
+                    className="
+                      w-full text-left px-2 py-1 rounded
+                      hover:bg-slate-800/60 transition-colors
+                      flex items-baseline gap-2 min-w-0
+                    "
+                  >
+                    <span className="text-slate-300 font-mono text-xs shrink-0">{ap.icao}</span>
+                    <span className="text-slate-500 text-xs font-sans truncate">
+                      {ap.city}{ap.state ? `, ${ap.state}` : ''}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+
+            {/* "Showing X of Y" hint when results are capped */}
+            {filteredAirports.length === LIST_LIMIT && (
+              <p className="text-xs text-slate-700 text-center">
+                Showing first {LIST_LIMIT} — refine your search to narrow results.
+              </p>
+            )}
           </section>
 
         </div>

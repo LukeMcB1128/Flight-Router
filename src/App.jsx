@@ -1,14 +1,48 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import MapView from './components/MapView'
 import Sidebar from './components/Sidebar'
 import ViewModeSwitcher from './components/ViewModeSwitcher'
 import { useRoute } from './hooks/useRoute'
+import { fetchAirports, AIRPORTS } from './data/airports'
 
 /**
  * App — root component.
  * Holds all shared state via useRoute and wires the globe + sidebar together.
+ *
+ * On mount we kick off a paginated fetch of the USDA NTAD Aviation Facilities
+ * dataset. While the fetch is in progress the app works normally against the
+ * hardcoded AIRPORTS fallback. Once the fetch resolves:
+ *   - `airports`      replaces the sidebar list with the full live dataset
+ *   - `airportsReady` flips to true, causing useRoute to re-resolve any
+ *     already-typed ICAO codes against the newly populated index
  */
 export default function App() {
+  const [airports,      setAirports]      = useState(Object.values(AIRPORTS))
+  const [airportsReady, setAirportsReady] = useState(false)
+  const [airportsError, setAirportsError] = useState(false)
+  // { loaded: number, total: number } — drives the progress badge in the Sidebar
+  const [fetchProgress, setFetchProgress] = useState({ loaded: 0, total: 0 })
+
+  useEffect(() => {
+    let cancelled = false
+    fetchAirports({
+      onProgress: (loaded, total) => {
+        if (!cancelled) setFetchProgress({ loaded, total })
+      },
+    })
+      .then((data) => {
+        if (cancelled) return
+        setAirports(data)
+        setAirportsReady(true)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        console.warn('NTAD airport fetch failed — using hardcoded fallback.', err)
+        setAirportsError(true)
+      })
+    return () => { cancelled = true }
+  }, [])
+
   const {
     originIcao, setOriginIcao,
     destIcao,   setDestIcao,
@@ -24,7 +58,7 @@ export default function App() {
     totalWeightLbs,
     weightStatus,
     effectiveRange,
-  } = useRoute()
+  } = useRoute({ airportsReady })
 
   // Clamp payload down when max drops due to higher fuel load
   const handleFuelChange = useCallback((gallons) => {
@@ -58,6 +92,10 @@ export default function App() {
         effectiveRange={effectiveRange}
         onFuelChange={handleFuelChange}
         onPayloadChange={setPayloadLbs}
+        airports={airports}
+        airportsReady={airportsReady}
+        airportsError={airportsError}
+        fetchProgress={fetchProgress}
       />
 
       {/* Map fills remaining space — switcher is a sibling of MapView so it

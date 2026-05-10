@@ -1,7 +1,7 @@
 /**
- * US airport dataset.
- * Each entry: ICAO code, display name, latitude, longitude.
- * Expand this list when connecting to a real data source.
+ * US airport dataset — hardcoded fallback.
+ * Used immediately on load and as a safety net if the NTAD API is unavailable.
+ * fetchAirports() replaces this with live USDA NTAD data at runtime.
  */
 export const AIRPORTS = {
   KLAX: { icao: 'KLAX', name: 'Los Angeles Intl', city: 'Los Angeles', lat: 33.9425, lng: -118.4081, runway_length: 12923, runway_count: 4 },
@@ -50,11 +50,180 @@ export const AIRPORTS = {
   KMYR: { icao: 'KMYR', name: 'Myrtle Beach Intl', city: 'Myrtle Beach', lat: 33.6797, lng: -78.9283, runway_length: 9503, runway_count: 1 },
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Live lookup index — starts as the hardcoded fallback and is replaced by the
+// NTAD API data once fetchAirports() resolves.
+// ─────────────────────────────────────────────────────────────────────────────
+let _airportIndex = { ...AIRPORTS }
+
 /**
  * Look up an airport by ICAO code (case-insensitive).
- * Returns the airport object or null if not found.
+ * After fetchAirports() resolves this searches the full NTAD dataset.
+ * Falls back to the hardcoded AIRPORTS object if the API has not loaded yet.
  */
 export function findAirport(icao) {
   if (!icao) return null
-  return AIRPORTS[icao.toUpperCase()] ?? null
+  return _airportIndex[icao.toUpperCase()] ?? null
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USDA NTAD Aviation Facilities API
+// ─────────────────────────────────────────────────────────────────────────────
+const NTAD_BASE =
+  'https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/' +
+  'NTAD_Aviation_Facilities/FeatureServer/0/query'
+
+// Only the fields we actually use — keeps each page response small.
+const NTAD_FIELDS = [
+  'ICAO_ID',
+  'ARPT_ID',
+  'ARPT_NAME',
+  'CITY',
+  'STATE_NAME',
+  'LAT_DECIMAL',
+  'LONG_DECIMAL',
+  'ELEV',
+  'ARPT_STATUS',
+].join(',')
+
+/**
+ * Transform a single GeoJSON Feature from the NTAD API into our airport shape.
+ * Handles missing or null fields gracefully with safe defaults.
+ *
+ * NTAD field → our field:
+ *   ICAO_ID    → icao  (falls back to ARPT_ID when blank)
+ *   ARPT_NAME  → name
+ *   CITY       → city
+ *   LAT_DECIMAL → lat  (falls back to geometry coordinates)
+ *   LONG_DECIMAL → lng
+ *   ELEV       → elevation (ft MSL)
+ *   STATE_NAME → state
+ *
+ * Note: The NTAD dataset does not include runway_length or runway_count.
+ * Those fields remain null so the Sidebar shows "N/A" rather than a bad value.
+ */
+function transformFeature(feature) {
+  const p = feature.properties ?? {}
+  // Geometry coordinates are [lng, lat] in GeoJSON
+  const [geoLng = null, geoLat = null] = feature.geometry?.coordinates ?? []
+
+  // Prefer the 4-char ICAO identifier; fall back to the FAA ARPT_ID.
+  const icao = ((p.ICAO_ID || p.ARPT_ID) ?? '').trim().toUpperCase()
+
+  return {
+    icao,
+    name:      (p.ARPT_NAME  ?? 'Unknown Airport').trim(),
+    city:      (p.CITY       ?? '').trim(),
+    state:     (p.STATE_NAME ?? '').trim(),
+    lat:       p.LAT_DECIMAL  ?? geoLat  ?? 0,
+    lng:       p.LONG_DECIMAL ?? geoLng  ?? 0,
+    elevation: p.ELEV ?? null,
+    // Runway data is not present in the NTAD Aviation Facilities layer.
+    runway_length: null,
+    runway_count:  null,
+  }
+}
+
+const WHERE   = "ARPT_STATUS='O'"   // open airports only
+const PAGE_SIZE = 1000
+
+/**
+ * Step 1 — ask the API how many records match our filter.
+ * Returns a plain count (number). Uses the lightweight JSON format, not GeoJSON.
+ */
+async function fetchTotalCount() {
+  const params = new URLSearchParams({
+    where:           WHERE,
+    returnCountOnly: 'true',
+    f:               'json',
+  })
+  const res = await fetch(`${NTAD_BASE}?${params}`)
+  if (!res.ok) throw new Error(`NTAD count query failed: HTTP ${res.status}`)
+  const json = await res.json()
+  return json.count ?? 0
+}
+
+/**
+ * Step 2 — fetch one page of GeoJSON features.
+ */
+async function fetchPage(offset) {
+  const params = new URLSearchParams({
+    outFields:         NTAD_FIELDS,
+    where:             WHERE,
+    f:                 'geojson',
+    resultRecordCount: PAGE_SIZE,
+    resultOffset:      offset,
+    orderByFields:     'OBJECTID ASC',   // stable, reproducible pages
+  })
+  const res = await fetch(`${NTAD_BASE}?${params}`)
+  if (!res.ok) throw new Error(`NTAD page fetch failed: HTTP ${res.status}`)
+  const geojson = await res.json()
+  return geojson.features ?? []
+}
+
+/**
+ * Fetch the full USDA NTAD Aviation Facilities dataset, transform it, update
+ * the live _airportIndex, and return the resulting array.
+ *
+ * Strategy — count-then-parallel:
+ *   1. One cheap count query tells us exactly how many pages exist.
+ *   2. All pages are fetched in parallel via Promise.allSettled, so the full
+ *      dataset arrives in roughly the time of a single round-trip rather than
+ *      N sequential ones.
+ *   3. An optional onProgress(loaded, total) callback is called as each page
+ *      resolves so the UI can show a live progress indicator.
+ *   4. Pages that fail are silently skipped — we'd rather show a partial list
+ *      than blow up entirely if one page 503s.
+ *
+ * On a total failure (count query throws) the function rejects and App.jsx
+ * leaves _airportIndex pointing at the hardcoded AIRPORTS fallback.
+ *
+ * @param {{ onProgress?: (loaded: number, total: number) => void }} [opts]
+ */
+export async function fetchAirports({ onProgress } = {}) {
+  // ── 1. How many records are there? ────────────────────────────────────────
+  const total     = await fetchTotalCount()
+  const pageCount = Math.ceil(total / PAGE_SIZE)
+
+  // ── 2. Fetch all pages in parallel ────────────────────────────────────────
+  let loaded = 0
+
+  const pagePromises = Array.from({ length: pageCount }, (_, i) =>
+    fetchPage(i * PAGE_SIZE).then((features) => {
+      loaded += features.length
+      onProgress?.(loaded, total)
+      return features
+    })
+  )
+
+  // allSettled means one bad page doesn't abort everything
+  const results    = await Promise.allSettled(pagePromises)
+  const allFeatures = results.flatMap((r) =>
+    r.status === 'fulfilled' ? r.value : []
+  )
+
+  // Log any page-level failures so they're visible in DevTools
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      console.warn(`NTAD page ${i} failed:`, r.reason)
+    }
+  })
+
+  // ── 3. Transform + filter ─────────────────────────────────────────────────
+  const airports = allFeatures
+    .map(transformFeature)
+    .filter((a) => a.icao && (a.lat !== 0 || a.lng !== 0))
+
+  // ── 4. Rebuild the live index ─────────────────────────────────────────────
+  const newIndex = {}
+  for (const ap of airports) {
+    newIndex[ap.icao] = ap
+  }
+  // Keep any hardcoded airport not returned by the API
+  for (const [key, ap] of Object.entries(AIRPORTS)) {
+    if (!newIndex[key]) newIndex[key] = ap
+  }
+
+  _airportIndex = newIndex
+  return airports
 }
