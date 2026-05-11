@@ -22,7 +22,7 @@ import { greatCirclePoints } from '../utils/geo'
 const US_CENTER = [39.5, -98.35]
 const US_ZOOM   = 4
 
-export default function LeafletMap({ origin, destination, viewMode }) {
+export default function LeafletMap({ origin, destination, refuelStops = [], viewMode }) {
   const mapRef          = useRef(null)
   const [statesGeoJson, setStatesGeoJson] = useState(null)
 
@@ -47,11 +47,9 @@ export default function LeafletMap({ origin, destination, viewMode }) {
 
     if (viewMode === 'region') {
       if (origin && destination) {
-        // Fit bounds to encompass both airports
-        const bounds = L.latLngBounds(
-          [origin.lat,      origin.lng],
-          [destination.lat, destination.lng],
-        )
+        // Fit bounds to encompass both airports and any refuel stops
+        const allPoints = [origin, destination, ...refuelStops]
+        const bounds = L.latLngBounds(allPoints.map((ap) => [ap.lat, ap.lng]))
         map.fitBounds(bounds, { padding: [60, 60], maxZoom: 10, animate: true })
       } else if (origin || destination) {
         // Zoom into the single selected airport
@@ -65,7 +63,8 @@ export default function LeafletMap({ origin, destination, viewMode }) {
       // us-map mode always resets to the full CONUS view
       map.setView(US_CENTER, US_ZOOM, { animate: true })
     }
-  }, [viewMode, origin?.icao, destination?.icao]) // eslint-disable-line react-hooks/exhaustive-deps
+  // refuelStops.length triggers a re-fit when stops are added/removed
+  }, [viewMode, origin?.icao, destination?.icao, refuelStops.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <MapContainer
@@ -142,6 +141,24 @@ export default function LeafletMap({ origin, destination, viewMode }) {
           </Tooltip>
         </CircleMarker>
       )}
+
+      {/* Refuel stop markers (amber) */}
+      {refuelStops.map((stop, i) => (
+        <CircleMarker
+          key={stop.icao}
+          center={[stop.lat, stop.lng]}
+          radius={5}
+          pathOptions={{
+            color:       '#f59e0b',   // amber-400
+            fillColor:   '#f59e0b',
+            fillOpacity: 0.85,
+          }}
+        >
+          <Tooltip direction="top" offset={[0, -8]}>
+            Stop {i + 1}: {stop.icao} — {stop.name}
+          </Tooltip>
+        </CircleMarker>
+      ))}
     </MapContainer>
   )
 }

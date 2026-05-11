@@ -124,7 +124,9 @@ function transformFeature(feature) {
   }
 }
 
-const WHERE   = "ARPT_STATUS='O'"   // open airports only
+// SITE_TYPE_CODE='A' excludes heliports (H), seaplane bases (S),
+// balloonports (B), ultralights (U), gliderports (G), etc.
+const WHERE = "ARPT_STATUS='O' AND SITE_TYPE_CODE='A'"
 const PAGE_SIZE = 1000
 
 /**

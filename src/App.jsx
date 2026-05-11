@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import MapView from './components/MapView'
 import Sidebar from './components/Sidebar'
 import ViewModeSwitcher from './components/ViewModeSwitcher'
 import { useRoute } from './hooks/useRoute'
 import { fetchAirports, AIRPORTS } from './data/airports'
+import { findRefuelStops } from './utils/routePlanning'
 
 /**
  * App — root component.
@@ -67,6 +68,14 @@ export default function App() {
     if (payloadLbs > newMax) setPayloadLbs(newMax)
   }, [aircraft, payloadLbs, setFuelGallons, setPayloadLbs])
 
+  // Refueling stop calculation — re-runs whenever route, fuel load, or the
+  // airport dataset changes. Runs synchronously on the main thread; the
+  // bounding-box pre-filter keeps it well under a millisecond for CONUS routes.
+  const refuelResult = useMemo(
+    () => findRefuelStops(origin, destination, effectiveRange, airports),
+    [origin, destination, effectiveRange, airports], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
   const [viewMode, setViewMode] = useState('us-map')
 
   const handleGlobeClick = useCallback(() => {
@@ -96,6 +105,7 @@ export default function App() {
         airportsReady={airportsReady}
         airportsError={airportsError}
         fetchProgress={fetchProgress}
+        refuelResult={refuelResult}
       />
 
       {/* Map fills remaining space — switcher is a sibling of MapView so it
@@ -104,6 +114,7 @@ export default function App() {
         <MapView
           origin={origin}
           destination={destination}
+          refuelStops={refuelResult?.stops ?? []}
           viewMode={viewMode}
           onGlobeClick={handleGlobeClick}
         />

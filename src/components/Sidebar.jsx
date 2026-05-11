@@ -100,6 +100,7 @@ export default function Sidebar({
   airportsReady  = false,
   airportsError  = false,
   fetchProgress  = { loaded: 0, total: 0 },
+  refuelResult   = null,
 }) {
   const [open, setOpen] = useState(true)
   const [airportSearch, setAirportSearch] = useState('')
@@ -431,34 +432,129 @@ export default function Sidebar({
                     </div>
                   </div>
                 ))}
-                {(origin && destination) && (
-                  <div className={`
-                    rounded-lg px-3 py-2 border text-sm font-medium
-                    ${takeoffLandingStatus
-                      ? takeoffLandingColor[takeoffLandingStatus]
-                      : 'text-slate-600 bg-slate-800/30 border-slate-700/30'}
-                    `}>
-                      {takeoffLandingStatus
-                        ? takeoffLandingLabel[takeoffLandingStatus]
-                        : 'Select an aircraft to check takeoff and landing performance'
-                      }
-                  </div>
-                )}
               </section>
             )}
 
-            {/* Refuel stops placeholder */}
+            {/* ── Refuel stops ───────────────────────────────── */}
             <div className="space-y-2">
-              <p className="text-xs text-slate-500 uppercase tracking-wider">
-                Refuel stops
-              </p>
-              <div className="bg-slate-800/30 border border-dashed border-slate-700/50 rounded-lg px-3 py-4 text-center">
-                <p className="text-xs text-slate-600">
-                  {distanceNm !== null
-                    ? 'Refuel stop calculation coming soon'
-                    : 'Set origin & destination first'}
-                </p>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+                  Refuel stops
+                </h2>
+                {/* Stop count badge */}
+                {refuelResult?.status === 'possible' && (
+                  <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400 border border-amber-400/20">
+                    {refuelResult.stops.length} stop{refuelResult.stops.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {refuelResult?.status === 'within-range' && (
+                  <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-emerald-400/10 text-emerald-400 border border-emerald-400/20">
+                    non-stop
+                  </span>
+                )}
+                {refuelResult?.status === 'impossible' && (
+                  <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-red-400/10 text-red-400 border border-red-400/20">
+                    not possible
+                  </span>
+                )}
               </div>
+
+              {/* No route / no aircraft set */}
+              {(!refuelResult || refuelResult.status === 'no-data') && (
+                <div className="bg-slate-800/30 border border-dashed border-slate-700/50 rounded-lg px-3 py-4 text-center">
+                  <p className="text-xs text-slate-600">
+                    {!origin || !destination
+                      ? 'Set origin & destination first'
+                      : !effectiveRange
+                        ? 'Select an aircraft to calculate stops'
+                        : 'Loading airport data…'}
+                  </p>
+                </div>
+              )}
+
+              {/* Impossible — no airport in range along the route */}
+              {refuelResult?.status === 'impossible' && (
+                <div className="rounded-lg px-3 py-2.5 bg-red-400/10 border border-red-400/20 text-xs text-red-400 text-center">
+                  No viable route found — aircraft range too short to connect
+                  available airports along this corridor.
+                </div>
+              )}
+
+              {/* Within range — direct, no stops needed */}
+              {refuelResult?.status === 'within-range' && (
+                <div className="rounded-lg px-3 py-2.5 bg-emerald-400/10 border border-emerald-400/20 text-xs text-emerald-400 text-center">
+                  Direct flight — destination is within range with a 10 % fuel reserve.
+                </div>
+              )}
+
+              {/* Possible — render the route timeline */}
+              {refuelResult?.status === 'possible' && (
+                <div className="bg-slate-800/40 rounded-lg border border-slate-700/50 overflow-hidden">
+                  {refuelResult.legs.map((leg, i) => {
+                    const isRefuelStop = i > 0   // every "from" except origin is a stop
+                    const isLast       = i === refuelResult.legs.length - 1
+
+                    return (
+                      <div key={`${leg.from.icao}-${leg.to.icao}`}>
+                        {/* Waypoint row */}
+                        <div className={`flex items-center gap-2 px-3 py-2 ${
+                          isRefuelStop ? 'bg-amber-400/5' : ''
+                        }`}>
+                          <span className="font-mono text-xs font-bold text-white w-10 shrink-0">
+                            {leg.from.icao}
+                          </span>
+                          <span className="text-xs text-slate-400 truncate flex-1">
+                            {leg.from.city || leg.from.name}
+                          </span>
+                          {isRefuelStop && (
+                            <span className="text-xs text-amber-400/80 shrink-0 flex items-center gap-1">
+                              {/* Fuel pump icon */}
+                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19.77 7.23l.01-.01-3.72-3.72-1.06 1.06 2.3 2.3c-.91.41-1.5 1.37-1.3 2.43.2 1.15 1.25 1.93 2.41 1.82.35-.03.67-.14.95-.3V17c0 .55-.45 1-1 1s-1-.45-1-1v-3c0-1.1-.9-2-2-2h-1V5c0-1.1-.9-2-2-2H6c-1.1 0-2 .9-2 2v16h10v-7.5h1.5v3c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V9c0-.69-.28-1.32-.73-1.77zM12 13.5H6v-5h6v5zm6-.5c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/>
+                              </svg>
+                              refuel
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Leg connector — distance + dashed line */}
+                        <div className="flex items-center gap-2 pl-3 pr-3 py-1">
+                          <div className="flex flex-col items-center gap-0.5 shrink-0 ml-3.5">
+                            <div className="w-px h-1.5 bg-slate-700" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />
+                            <div className="w-px h-1.5 bg-slate-700" />
+                          </div>
+                          <span className="text-xs text-slate-600 tabular-nums">
+                            {leg.distanceNm.toLocaleString()} nm
+                          </span>
+                        </div>
+
+                        {/* Render destination after the last connector */}
+                        {isLast && (
+                          <div className="flex items-center gap-2 px-3 py-2">
+                            <span className="font-mono text-xs font-bold text-white w-10 shrink-0">
+                              {leg.to.icao}
+                            </span>
+                            <span className="text-xs text-slate-400 truncate flex-1">
+                              {leg.to.city || leg.to.name}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  {/* Total distance footer */}
+                  <div className="flex justify-between items-center px-3 py-2 border-t border-slate-700/50 bg-slate-800/30">
+                    <span className="text-xs text-slate-500">Total distance</span>
+                    <span className="text-xs font-mono text-slate-300 tabular-nums">
+                      {refuelResult.legs
+                        .reduce((sum, l) => sum + l.distanceNm, 0)
+                        .toLocaleString()} nm
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
