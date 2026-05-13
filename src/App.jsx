@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import MapView from './components/MapView'
 import Sidebar from './components/Sidebar'
+import TopBar from './components/TopBar'
 import ViewModeSwitcher from './components/ViewModeSwitcher'
 import { useRoute } from './hooks/useRoute'
 import { fetchAirports, AIRPORTS } from './data/airports'
@@ -105,9 +106,14 @@ export default function App() {
         airportsReady={airportsReady}
         airportsError={airportsError}
         fetchProgress={fetchProgress}
-        refuelResult={refuelResult}
       />
 
+      <div className="flex-1 flex flex-col relative overflow-hidden">
+        <TopBar
+          origin={origin}
+          destination={destination}
+          refuelResult={refuelResult}
+        />
       {/* Map fills remaining space — switcher is a sibling of MapView so it
            sits above the WebGL canvas in the pointer-event hit-test order */}
       <div className="flex-1 relative">
@@ -120,6 +126,7 @@ export default function App() {
         />
         <ViewModeSwitcher viewMode={viewMode} setViewMode={setViewMode} />
       </div>
+    </div>
     </div>
   )
 }
