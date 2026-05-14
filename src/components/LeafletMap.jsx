@@ -34,11 +34,17 @@ export default function LeafletMap({ origin, destination, refuelStops = [], view
       .catch(err => console.error('Failed to load US states GeoJSON:', err))
   }, [])
 
-  // ── Great-circle arc points (memoised on ICAO codes, not object refs) ───
-  const arcPoints = useMemo(() => {
+  // ── Per-leg great-circle arcs (origin → stops → destination) ────────────
+  // Each leg gets its own arc so the path threads through every refuel stop
+  // rather than cutting straight from origin to destination.
+  const legArcs = useMemo(() => {
     if (!origin || !destination) return []
-    return greatCirclePoints(origin.lat, origin.lng, destination.lat, destination.lng, 80)
-  }, [origin?.icao, destination?.icao]) // eslint-disable-line react-hooks/exhaustive-deps
+    const waypoints = [origin, ...refuelStops, destination]
+    return waypoints.slice(0, -1).map((wp, i) => ({
+      key:    `${wp.icao}-${waypoints[i + 1].icao}`,
+      points: greatCirclePoints(wp.lat, wp.lng, waypoints[i + 1].lat, waypoints[i + 1].lng, 80),
+    }))
+  }, [origin?.icao, destination?.icao, refuelStops.map(s => s.icao).join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Auto-fit / reset view when mode or airports change ──────────────────
   useEffect(() => {
@@ -95,10 +101,11 @@ export default function LeafletMap({ origin, destination, refuelStops = [], view
         />
       )}
 
-      {/* Great-circle route arc */}
-      {arcPoints.length > 0 && (
+      {/* Great-circle route arcs — one per leg, threading through refuel stops */}
+      {legArcs.map(({ key, points }) => (
         <Polyline
-          positions={arcPoints}
+          key={key}
+          positions={points}
           pathOptions={{
             color:     '#60a5fa',   // blue-400 — matches globe arc
             weight:    2,
@@ -106,7 +113,7 @@ export default function LeafletMap({ origin, destination, refuelStops = [], view
             dashArray: '6 4',
           }}
         />
-      )}
+      ))}
 
       {/* Origin airport marker (blue) */}
       {origin && (
