@@ -126,7 +126,8 @@ function transformFeature(feature) {
 
 // SITE_TYPE_CODE='A' excludes heliports (H), seaplane bases (S),
 // balloonports (B), ultralights (U), gliderports (G), etc.
-const WHERE = "ARPT_STATUS='O' AND SITE_TYPE_CODE='A'"
+// FACILITY_USE_CODE='PU' excludes private airstrips (ranches, farms, personal fields).
+const WHERE = "ARPT_STATUS='O' AND SITE_TYPE_CODE='A' AND FACILITY_USE_CODE='PU'"
 const PAGE_SIZE = 1000
 
 /**
