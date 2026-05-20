@@ -104,14 +104,14 @@ export default function TopBar({ origin, destination, refuelResult }) {
         ) : (
           <>
             {orgWeather ? (
-              <div className="flex flex-col text-right">
+              <div className="flex flex-col text-left">
                 <span className="text-xs font-mono text-slate-300">
                   <span className="text-white font-semibold">{origin.icao}</span>
                   <span className="mx-1 text-slate-500">|</span>
                   {orgWeather.windDirection !== null ? Math.round(orgWeather.windDirection) : 'VRB'}° @ {orgWeather.windSpeedKts !== null ? Math.round(orgWeather.windSpeedKts) : 0}kt
                 </span>
                 <span className="text-[10px] font-mono text-slate-500 mt-0.5">
-                  VIS {orgWeather.visibilityMiles ? orgWeather.visibilityMiles.toFixed(1) : '?'} SM
+                  TEMP: {orgWeather.temp}C | VIS {orgWeather.visibilityMiles ? orgWeather.visibilityMiles.toFixed(1) : '?'} SM
                 </span>
               </div>
             ) : (
@@ -121,14 +121,14 @@ export default function TopBar({ origin, destination, refuelResult }) {
             <div className="w-px h-6 bg-slate-700/50" />
 
             {destWeather ? (
-              <div className="flex flex-col text-right">
+              <div className="flex flex-col text-left">
                 <span className="text-xs font-mono text-slate-300">
                   <span className="text-white font-semibold">{destination.icao}</span>
                   <span className="mx-1 text-slate-500">|</span>
                   {destWeather.windDirection !== null ? Math.round(destWeather.windDirection) : 'VRB'}° @ {destWeather.windSpeedKts !== null ? Math.round(destWeather.windSpeedKts) : 0}kt
                 </span>
                 <span className="text-[10px] font-mono text-slate-500 mt-0.5">
-                  VIS {destWeather.visibilityMiles ? destWeather.visibilityMiles.toFixed(1) : '?'} SM
+                  TEMP: {destWeather.temp}C | VIS {destWeather.visibilityMiles ? destWeather.visibilityMiles.toFixed(1) : '?'} SM
                 </span>
               </div>
             ) : (

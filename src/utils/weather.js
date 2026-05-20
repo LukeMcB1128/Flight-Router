@@ -26,8 +26,9 @@ export async function getAirportWeather(icaoCode) {
         return {
             rawMetar: props.rawMessage,
             windSpeedKts: props.windSpeed.value ? props.windSpeed.value * 0.539957 : null,
-            windDirection: props.windDirection.value,
+            windDirection: props.windDirection.value ?? null,
             visibilityMiles: props.visibility.value ? props.visibility.value * 0.000621371 : null,
+            temp: props.temperature.value ?? null,
         };
     } catch (error) {
         console.error("Failed to fetch METAR: ", error);
