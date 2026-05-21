@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { getAirportWeather } from '../utils/weather';
 
+// use this for multiple airports
+
 export function useRouteWeather(icaoCodes) {
     const [weatherMap, setWeatherMap] = useState({});
     const [isLoading, setIsLoading] = useState(false);

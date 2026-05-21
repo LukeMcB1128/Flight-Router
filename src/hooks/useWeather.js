@@ -1,6 +1,8 @@
 import { useState, useEffect} from 'react';
 import { getAirportWeather } from '../utils/weather';
 
+// want to use this for one airport (icao)
+
 export function useWeather(icaoCode) {
     const [weatherData, setWeatherData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
