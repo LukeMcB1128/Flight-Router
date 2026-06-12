@@ -66,7 +66,6 @@ A comprehensive flight planning tool for private and hobbyist pilots. Plan route
 src/
 ├── components/          # React components
 │   ├── MapView.jsx     # Map/Globe container & switcher
-│   ├── GlobeView.jsx   # 3D globe visualization
 │   ├── LeafletMap.jsx  # US map with route overlay
 │   ├── Sidebar.jsx     # Route input & flight parameters
 │   ├── TopBar.jsx      # Route info & weather display

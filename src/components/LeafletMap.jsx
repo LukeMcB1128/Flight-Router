@@ -78,7 +78,7 @@ export default function LeafletMap({ origin, destination, refuelStops = [], view
       center={US_CENTER}
       zoom={US_ZOOM}
       className="w-full h-full"
-      zoomControl={false}   // we float our own ViewModeSwitcher in the same corner
+      zoomControl={false}
     >
       {/* CartoDB Dark Matter tiles — free, no API key */}
       <TileLayer

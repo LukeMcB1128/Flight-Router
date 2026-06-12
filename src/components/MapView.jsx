@@ -1,4 +1,3 @@
-import GlobeView from './GlobeView'
 import LeafletMap from './LeafletMap'
 
 /**
@@ -29,14 +28,6 @@ import LeafletMap from './LeafletMap'
 export default function MapView({ origin, destination, refuelStops = [], viewMode, onGlobeClick }) {
   return (
     <div className="w-full h-full">
-      {viewMode === 'globe' && (
-        <GlobeView
-          origin={origin}
-          destination={destination}
-          onGlobeClick={onGlobeClick}
-        />
-      )}
-
       {(viewMode === 'us-map' || viewMode === 'region') && (
         <LeafletMap
           origin={origin}
